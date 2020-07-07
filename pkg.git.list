@@ -1,0 +1,6 @@
+devel/cmake
+devel/git
+devel/gmake
+devel/qt5-qmake
+devel/qt5-buildtools
+devel/qt5-linguisttools

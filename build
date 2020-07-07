@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 #
 # vim: set tabstop=4:
 #
@@ -165,7 +165,7 @@ createbase()
 
 	[ ! -d "${SYSDIR}" ] && mkdir "${SYSDIR}"
 	for d in base.txz kernel.txz; do
-		fetch ${DISTSITE}/$d -o /tmp/$d || bail
+		fetch -a ${DISTSITE}/$d -o /tmp/$d || bail
 		tar --unlink -xvpJf /tmp/$d -C "${SYSDIR}" || bail
 		rm -f /tmp/$d
 	done
@@ -178,7 +178,7 @@ createbase()
 		svnlite checkout ${srcurl}/${version} "${SYSDIR}/usr/src" || bail
 		;;
 	*)
-		fetch ${DISTSITE}/src.txz -o /tmp/src.txz || bail
+		fetch -a ${DISTSITE}/src.txz -o /tmp/src.txz || bail
 		tar --unlink -xvpJf /tmp/src.txz -C "${SYSDIR}" || bail
 	    ;;
 	esac
@@ -285,6 +285,25 @@ instpkgs()
 	umount "${SYSDIR}/dev"
 }
 
+instbuildpackages()
+{
+	if ! (mount | grep -q "${SYSDIR}/dev"); then
+		chroot "${SYSDIR}" sh -c 'mount -t devfs devfs /dev'
+	fi
+	pkg --chroot "${SYSDIR}" install -y devel/cmake devel/git devel/gmake devel/qt5-qmake devel/qt5-buildtools devel/qt5-linguisttools
+	umount "${SYSDIR}/dev"
+}
+
+deletebuildpackages()
+{
+	if ! (mount | grep -q "${SYSDIR}/dev"); then
+		chroot "${SYSDIR}" sh -c 'mount -t devfs devfs /dev'
+	fi
+	pkg --chroot "${SYSDIR}" delete -y devel/cmake devel/git devel/gmake devel/qt5-qmake devel/qt5-buildtools devel/qt5-linguisttools
+	pkg --chroot "${SYSDIR}" autoremove -y
+	umount "${SYSDIR}/dev"
+}
+
 instgit()
 {
 	[ ! -d "${SYSDIR}/git" ] && mkdir "${SYSDIR}/git"
@@ -387,7 +406,7 @@ instports()
 		pkg -c "${SYSDIR}" delete -y devel/autoconf
 	fi
 	if [ -z "$have_automake" ]; then
-		pkg -c "${SYSDIR}" delete -y devel/autoconf
+		pkg -c "${SYSDIR}" delete -y devel/automake
 	fi
 	pkg -c "${SYSDIR}" autoremove -y
 
@@ -735,7 +754,7 @@ build_dmconfig()
 
 build_chusr()
 {
-	required_pkgs="py36-qt5-core py36-qt5-xml py36-qt5-gui py36-qt5-widgets"
+	required_pkgs="py37-qt5-core py37-qt5-xml py37-qt5-gui py37-qt5-widgets"
 	cp -a src/nomadbsd-chusr "${SYSDIR}/tmp/"
 	chroot "${SYSDIR}" \
 			sh -c "cd /tmp/nomadbsd-chusr && make install" || bail
@@ -924,7 +943,10 @@ while [ $# -gt 0 ]; do
 	image)		createimage;;
 	init)		_init;;
 	initbase)	initbase;;
+	instbuildpkgs)	instbuildpackages;;
+	delbuildpkgs)	deletebuildpackages;;
 	kernel)		buildkernel;;
+	nvidia)		buildnvidia;;
 	patch)		createpatch;;
 	pkgcfg)		postpkgcfg;;
 	pkgs)		instpkgs;;
